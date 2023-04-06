@@ -1,0 +1,61 @@
+#! /usr/bin/env bash
+
+set -euo pipefail
+
+TEMP_DIR="/tmp/container-images-alpine"
+ROOTFS_DIR="$TEMP_DIR/rootfs"
+ROOTFS_TAR="$TEMP_DIR/rootfs.tar"
+APK="$TEMP_DIR/apk.static"
+VERSION="$(cat "$(dirname "$0")/../VERSION")"
+BRANCH="v$(cat "$(dirname "$0")/../VERSION" | sed 's/\([0-9]\+\.[0-9]\+\)\..*/\1/')"
+export SOURCE_DATE_EPOCH="0"
+
+if [ -d "$TEMP_DIR" ]; then
+    rm -Rf "$TEMP_DIR"
+fi
+mkdir -p "$TEMP_DIR"
+
+# Download static apk binary
+
+wget \
+    --no-verbose \
+    https://gitlab.alpinelinux.org/api/v4/projects/5/packages/generic/v2.12.11/x86_64/apk.static \
+    -O "$APK"
+echo "a77621da3475ae0ed92daa2d05b9c2bb671639af8c17cce44098192dfbe1b80b $APK" | sha256sum -c
+chmod +x "$APK"
+
+# Install system
+
+mkdir -p "$ROOTFS_DIR"
+
+$APK \
+    --root $ROOTFS_DIR \
+    --repository https://dl-cdn.alpinelinux.org/alpine/$BRANCH/main \
+    --initdb \
+    --allow-untrusted \
+    --no-cache \
+    add \
+    alpine-baselayout \
+    alpine-keys \
+    alpine-release \
+    apk-tools
+
+cat > "$ROOTFS_DIR/etc/apk/repositories" <<-EOF
+https://dl-cdn.alpinelinux.org/alpine/$BRANCH/main
+https://dl-cdn.alpinelinux.org/alpine/$BRANCH/community
+EOF
+
+# Create tar
+tar \
+    --sort=name \
+    --mtime="@${SOURCE_DATE_EPOCH}" \
+    --owner=0 \
+    --group=0 \
+    --numeric-owner \
+    --pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime \
+    --create \
+    --file "$ROOTFS_TAR" \
+    --directory "$ROOTFS_DIR" \
+    "."
+
+cp "$ROOTFS_TAR" "$(dirname "$0")/.."

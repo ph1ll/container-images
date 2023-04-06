@@ -1,0 +1,49 @@
+name: Update versions
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  get-images:
+    name: Get images
+    runs-on: ubuntu-latest
+    if: github.repository == 'ph1ll/container-images' && github.ref == 'refs/heads/main'
+    outputs:
+      matrix: '{"image": ${{ steps.get-images.outputs.images }} }'
+    steps:
+      - uses: actions/checkout@v3.5.0
+        with:
+          fetch-depth: 1
+      - name: Get images
+        id: get-images
+        run: |
+          echo "images=$(ls ./images | jq -rRn '[inputs] | tostring')" >> $GITHUB_OUTPUT
+
+  update-versions:
+    name: Update versions
+    runs-on: ubuntu-latest
+    if: github.repository == 'ph1ll/container-images' && github.ref == 'refs/heads/main'
+    needs: get-images
+    strategy:
+      matrix: ${{ fromJson(needs.get-images.outputs.matrix) }}
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3.5.0
+        with:
+          fetch-depth: 1
+      - name: Get latest version
+        working-directory: ./images/${{ matrix.image }}
+        run: |
+          echo "$(sudo ./scripts/get-latest-version)" > VERSION
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5.0.0
+        with:
+          token: ${{ secrets.PAT }}
+          add-paths: ./images/${{ matrix.image }}
+          commit-message: Update ${{ matrix.image }} version
+          branch: update-${{ matrix.image }}-version
+          delete-branch: true
+          base: main
+          title: Update ${{ matrix.image }} version
