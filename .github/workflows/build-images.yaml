@@ -1,0 +1,70 @@
+name: Build images
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "images/**"
+  pull_request:
+    paths:
+      - "images/**"
+
+jobs:
+  changes:
+    name: Get changes
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: '{"image": ${{ steps.changes.outputs.images }} }'
+    steps:
+      - uses: actions/checkout@v3.5.0
+        with:
+          fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 0 }}
+      - name: Get changed images
+        id: changes
+        run: |
+          if ${{ github.event_name == 'pull_request' }}; then
+              echo "images=$(git diff --name-only -r HEAD^1 HEAD -- images/ | cut -d / -f 2 | sort | uniq | jq -rRn '[inputs] | tostring')" >> $GITHUB_OUTPUT
+          else
+              echo "images=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} -- images/ | cut -d / -f 2 | sort | uniq | jq -rRn '[inputs] | tostring')" >> $GITHUB_OUTPUT
+          fi
+
+  build-changed:
+    runs-on: ubuntu-latest
+    needs: changes
+    strategy:
+      matrix: ${{ fromJson(needs.changes.outputs.matrix) }}
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3.5.0
+        with:
+          fetch-depth: 1
+      - name: Get version
+        id: get-version
+        working-directory: ./images/${{ matrix.image }}
+        run: |
+          echo "version=$(cat ./VERSION)" >> $GITHUB_OUTPUT
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2.1.0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2.5.0
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run pre-build
+        working-directory: ./images/${{ matrix.image }}
+        run: |
+          if test -f ./scripts/pre-build; then
+              sudo ./scripts/pre-build
+          fi
+      - name: Build and push
+        uses: docker/build-push-action@v4.0.0
+        with:
+          context: ./images/${{ matrix.image }}
+          push: ${{ github.repository == 'ph1ll/container-images' && github.ref == 'refs/heads/main' }}
+          provenance: false
+          tags: ghcr.io/${{ github.repository }}/${{ matrix.image }}:${{ steps.get-version.outputs.version }}
