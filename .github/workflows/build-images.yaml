@@ -67,4 +67,5 @@ jobs:
           context: ./images/${{ matrix.image }}
           push: ${{ github.repository == 'ph1ll/container-images' && github.ref == 'refs/heads/main' }}
           provenance: false
+          sbom: false
           tags: ghcr.io/${{ github.repository }}/${{ matrix.image }}:${{ steps.get-version.outputs.version }}
