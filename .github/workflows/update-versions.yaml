@@ -36,7 +36,12 @@ jobs:
       - name: Get latest version
         working-directory: ./images/${{ matrix.image }}
         run: |
+          pwd
+          ls -an
+          ls -an ./scripts
           echo -n "$(sudo ./scripts/get-latest-version)" > VERSION
+          echo "${{ matrix.image }}"
+          echo "${{ matrix }}"
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5.0.2
         with:
