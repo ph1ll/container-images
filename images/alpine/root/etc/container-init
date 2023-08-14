@@ -1,0 +1,10 @@
+#! /usr/bin/env sh
+
+set -euo pipefail
+
+for CONTAINER_INIT in `find /etc/container-init.d -maxdepth 1 -perm -111 -type f`
+do 
+  source $CONTAINER_INIT
+done;
+
+exec "$@"
