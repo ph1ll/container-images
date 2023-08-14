@@ -2,7 +2,7 @@ name: Update versions
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: "0 0 * * *"
 
 jobs:
   get-images:
@@ -36,7 +36,7 @@ jobs:
       - name: Get latest version
         working-directory: ./images/${{ matrix.image }}
         run: |
-          echo "$(sudo ./scripts/get-latest-version)" > VERSION
+          echo -n "$(sudo ./scripts/get-latest-version)" > VERSION
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5.0.2
         with:

@@ -1,0 +1,8 @@
+#! /usr/bin/env sh
+
+set -euo pipefail
+
+if [ ! -f /config/nzbget.config ]; then
+  cp /opt/nzbget/nzbget.conf /config/nzbget.conf
+  sed -i 's/MainDir=${AppDir}\/downloads/MainDir=\/downloads/' /config/nzbget.conf
+fi
