@@ -1,0 +1,5 @@
+#! /usr/bin/env bash
+
+set -euo pipefail
+
+echo $(curl --silent "https://api.github.com/repos/radarr/radarr/releases/latest" | jq --raw-output '.tag_name') | sed 's/^v//'
